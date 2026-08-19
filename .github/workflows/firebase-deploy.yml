@@ -1,0 +1,136 @@
+name: Publicar no Firebase
+
+# Publica automaticamente a cada envio de código. Depois da configuração
+# inicial, ninguém precisa abrir o console do Firebase de novo.
+#
+# Enquanto os segredos não existirem, o fluxo roda os testes e para com aviso,
+# sem marcar falha — assim o repositório não fica vermelho antes da configuração.
+on:
+  push:
+    branches:
+      - main
+      - claude/eager-goldberg-7dt0pe
+  workflow_dispatch:
+
+concurrency:
+  group: firebase-deploy
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Verificar tipos, lint e testes
+        run: |
+          pnpm check
+          pnpm lint
+          pnpm test
+
+      - name: Conferir se a publicação já está configurada
+        id: config
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ASSINAFLUXO_REGISTRATION_CODE: ${{ secrets.ASSINAFLUXO_REGISTRATION_CODE }}
+        run: |
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ] && [ -n "$ASSINAFLUXO_REGISTRATION_CODE" ]; then
+            echo "pronto=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pronto=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Publicação ainda não configurada"
+              echo ""
+              echo "Os testes passaram, mas faltam os segredos do repositório."
+              echo "Siga o **SETUP_PUBLICACAO.md** e crie:"
+              echo ""
+              echo "- \`FIREBASE_SERVICE_ACCOUNT\`"
+              echo "- \`ASSINAFLUXO_REGISTRATION_CODE\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::Publicação pulada: segredos ainda não configurados. Veja SETUP_PUBLICACAO.md."
+          fi
+
+      # A chave da conta de serviço vem do segredo do repositório e é gravada
+      # em arquivo apenas dentro da execução, que é descartada ao final.
+      - name: Autenticar no Firebase
+        if: steps.config.outputs.pronto == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+          PROJECT_ID=$(node -e "console.log(require('$RUNNER_TEMP/sa.json').project_id)")
+          if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "undefined" ]; then
+            echo "::error::A chave em FIREBASE_SERVICE_ACCOUNT não parece um JSON de conta de serviço válido."
+            exit 1
+          fi
+          echo "FIREBASE_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
+          echo "Projeto: $PROJECT_ID"
+
+      # A configuração pública do app é lida do próprio projeto, então não há
+      # nada para copiar à mão nem para manter em sincronia.
+      - name: Ler a configuração pública do app web
+        if: steps.config.outputs.pronto == 'true'
+        run: |
+          pnpm exec firebase apps:sdkconfig WEB --project "$FIREBASE_PROJECT_ID" --json > "$RUNNER_TEMP/sdk.json"
+          node -e "
+            const data = require('$RUNNER_TEMP/sdk.json');
+            // O formato já variou entre versões da CLI; aceita as três formas.
+            const cfg = data?.result?.sdkConfig ?? data?.sdkConfig ?? data?.result ?? data;
+            if (!cfg?.apiKey || !cfg?.projectId) {
+              console.error('Configuração do app web não encontrada. Registre um app Web no console (Parte 1 do SETUP_PUBLICACAO.md).');
+              process.exit(1);
+            }
+            const out = {
+              EXPO_PUBLIC_FIREBASE_API_KEY: cfg.apiKey,
+              EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: cfg.authDomain ?? '',
+              EXPO_PUBLIC_FIREBASE_PROJECT_ID: cfg.projectId,
+              EXPO_PUBLIC_FIREBASE_APP_ID: cfg.appId ?? '',
+              EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: cfg.storageBucket ?? '',
+              EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: cfg.messagingSenderId ?? '',
+            };
+            require('fs').appendFileSync(process.env.GITHUB_ENV, Object.entries(out).map(([k, v]) => k + '=' + v).join('\n') + '\n');
+            console.log('Configuração lida do projeto ' + cfg.projectId);
+          "
+
+      - name: Atualizar o código de cadastro no Secret Manager
+        if: steps.config.outputs.pronto == 'true'
+        env:
+          ASSINAFLUXO_REGISTRATION_CODE: ${{ secrets.ASSINAFLUXO_REGISTRATION_CODE }}
+        run: |
+          printf '%s' "$ASSINAFLUXO_REGISTRATION_CODE" | \
+            pnpm exec firebase functions:secrets:set ASSINAFLUXO_REGISTRATION_CODE \
+              --project "$FIREBASE_PROJECT_ID" --force --data-file -
+
+      - name: Compilar interface e API
+        if: steps.config.outputs.pronto == 'true'
+        run: |
+          pnpm build:web
+          pnpm build:functions
+
+      - name: Publicar
+        if: steps.config.outputs.pronto == 'true'
+        run: pnpm exec firebase deploy --project "$FIREBASE_PROJECT_ID" --non-interactive
+
+      - name: Mostrar o endereço publicado
+        if: steps.config.outputs.pronto == 'true'
+        run: |
+          {
+            echo "### Sistema publicado"
+            echo ""
+            echo "Endereço: https://$FIREBASE_PROJECT_ID.web.app"
+            echo ""
+            echo "Primeiro acesso: /cadastro — a primeira conta criada vira a coordenação."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -50,8 +50,12 @@ npx firebase use --add
 pnpm fb:deploy
 ```
 
-O roteiro completo — criar o projeto, ativar Authentication e Firestore, definir o código de
-cadastro e publicar — está em **[DEPLOY_FIREBASE.md](DEPLOY_FIREBASE.md)**.
+Melhor ainda: com a **[configuração única do SETUP_PUBLICACAO.md](SETUP_PUBLICACAO.md)**, o
+GitHub passa a publicar sozinho a cada alteração — sem ninguém abrir o console de novo. Os
+testes rodam antes; se algum falhar, nada é publicado e o que está no ar continua funcionando.
+
+O roteiro manual, para publicar da própria máquina, está em
+**[DEPLOY_FIREBASE.md](DEPLOY_FIREBASE.md)**.
 
 Alternativa sem Firebase: hospedar o servidor Node você mesmo, com HTTPS, servindo `dist-web`
 pelo mesmo domínio da API (ou definindo `EXPO_PUBLIC_API_BASE_URL`), e usar `DATABASE_URL`
