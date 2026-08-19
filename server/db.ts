@@ -2,6 +2,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, localAccounts, localSessions, processMembers, registrationLinks, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { isFileStoreActive, mutateStore, nextSequence, readStore } from "./store/local-store";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -89,7 +90,17 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+/**
+ * Local identity and workflow membership.
+ *
+ * Each function has two paths: the shared MySQL tables when DATABASE_URL is
+ * configured, and the file-backed store otherwise, so the application is usable
+ * without provisioning a database. Both paths honour the same rules — unique
+ * e-mail, single-use invites, session expiry and revocation.
+ */
+
 export async function getLocalAccountCount() {
+  if (isFileStoreActive()) return readStore().accounts.length;
   const db = await getDb();
   if (!db) return 0;
   const rows = await db.select({ id: localAccounts.id }).from(localAccounts);
@@ -97,6 +108,7 @@ export async function getLocalAccountCount() {
 }
 
 export async function getLocalAccountByEmail(email: string) {
+  if (isFileStoreActive()) return readStore().accounts.find((account) => account.email === email.toLowerCase());
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(localAccounts).where(eq(localAccounts.email, email.toLowerCase())).limit(1);
@@ -104,6 +116,7 @@ export async function getLocalAccountByEmail(email: string) {
 }
 
 export async function getLocalAccountById(id: number) {
+  if (isFileStoreActive()) return readStore().accounts.find((account) => account.id === id);
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(localAccounts).where(eq(localAccounts.id, id)).limit(1);
@@ -111,6 +124,13 @@ export async function getLocalAccountById(id: number) {
 }
 
 export async function createLocalAccount(data: { name: string; email: string; registrationId: string; role: "coordinator" | "signer" | "viewer"; passwordHash: string; passwordSalt: string }) {
+  if (isFileStoreActive()) {
+    const id = nextSequence("account");
+    mutateStore((state) => {
+      state.accounts.push({ ...data, id, email: data.email.toLowerCase(), isActive: true, createdAt: new Date().toISOString() });
+    });
+    return id;
+  }
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(localAccounts).values({ ...data, email: data.email.toLowerCase() });
@@ -118,18 +138,37 @@ export async function createLocalAccount(data: { name: string; email: string; re
 }
 
 export async function updateLastSignedIn(id: number) {
+  if (isFileStoreActive()) {
+    mutateStore((state) => {
+      const account = state.accounts.find((item) => item.id === id);
+      if (account) account.lastSignedIn = new Date().toISOString();
+    });
+    return;
+  }
   const db = await getDb();
   if (!db) return;
   await db.update(localAccounts).set({ lastSignedIn: new Date() }).where(eq(localAccounts.id, id));
 }
 
 export async function createLocalSession(data: { accountId: number; tokenHash: string; expiresAt: Date }) {
+  if (isFileStoreActive()) {
+    mutateStore((state) => {
+      state.sessions.push({ accountId: data.accountId, tokenHash: data.tokenHash, expiresAt: data.expiresAt.toISOString() });
+    });
+    return;
+  }
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.insert(localSessions).values(data);
 }
 
 export async function getActiveLocalSession(tokenHash: string) {
+  if (isFileStoreActive()) {
+    const now = Date.now();
+    return readStore().sessions.find(
+      (session) => session.tokenHash === tokenHash && !session.revokedAt && Date.parse(session.expiresAt) > now,
+    );
+  }
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(localSessions).where(and(eq(localSessions.tokenHash, tokenHash), isNull(localSessions.revokedAt), gt(localSessions.expiresAt, new Date()))).limit(1);
@@ -137,12 +176,25 @@ export async function getActiveLocalSession(tokenHash: string) {
 }
 
 export async function revokeLocalSession(tokenHash: string) {
+  if (isFileStoreActive()) {
+    mutateStore((state) => {
+      const session = state.sessions.find((item) => item.tokenHash === tokenHash);
+      if (session) session.revokedAt = new Date().toISOString();
+    });
+    return;
+  }
   const db = await getDb();
   if (!db) return;
   await db.update(localSessions).set({ revokedAt: new Date() }).where(eq(localSessions.tokenHash, tokenHash));
 }
 
 export async function getRegistrationLink(tokenHash: string) {
+  if (isFileStoreActive()) {
+    const now = Date.now();
+    return readStore().invites.find(
+      (invite) => invite.tokenHash === tokenHash && !invite.usedAt && Date.parse(invite.expiresAt) > now,
+    );
+  }
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(registrationLinks).where(and(eq(registrationLinks.tokenHash, tokenHash), isNull(registrationLinks.usedAt), gt(registrationLinks.expiresAt, new Date()))).limit(1);
@@ -150,27 +202,54 @@ export async function getRegistrationLink(tokenHash: string) {
 }
 
 export async function consumeRegistrationLink(id: number) {
+  if (isFileStoreActive()) {
+    mutateStore((state) => {
+      const invite = state.invites.find((item) => item.id === id);
+      if (invite) invite.usedAt = new Date().toISOString();
+    });
+    return;
+  }
   const db = await getDb();
   if (!db) return;
   await db.update(registrationLinks).set({ usedAt: new Date() }).where(eq(registrationLinks.id, id));
 }
 
 export async function createRegistrationLink(data: { tokenHash: string; processId: string; stageId: string; functionKey: string; signatureOrder: number; expiresAt: Date }) {
+  if (isFileStoreActive()) {
+    const id = nextSequence("invite");
+    mutateStore((state) => {
+      state.invites.push({ ...data, id, expiresAt: data.expiresAt.toISOString() });
+    });
+    return;
+  }
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.insert(registrationLinks).values(data);
 }
 
 export async function createProcessMember(data: { processId: string; accountId: number; functionKey: string; stageId: string; signatureOrder: number }) {
+  if (isFileStoreActive()) {
+    mutateStore((state) => {
+      const exists = state.members.some(
+        (member) => member.processId === data.processId && member.accountId === data.accountId && member.stageId === data.stageId,
+      );
+      if (!exists) state.members.push({ ...data });
+    });
+    return;
+  }
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.insert(processMembers).values(data);
 }
 
 export async function getProcessMember(processId: string, accountId: number, stageId: string) {
+  if (isFileStoreActive()) {
+    return readStore().members.find(
+      (member) => member.processId === processId && member.accountId === accountId && member.stageId === stageId,
+    );
+  }
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(processMembers).where(and(eq(processMembers.processId, processId), eq(processMembers.accountId, accountId), eq(processMembers.stageId, stageId))).limit(1);
   return result[0];
 }
-

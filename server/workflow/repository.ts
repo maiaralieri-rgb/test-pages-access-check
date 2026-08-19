@@ -42,6 +42,16 @@ type MemoryState = {
 };
 
 /**
+ * Optional durability hook. Without it the repository is pure memory (tests);
+ * with it, every committed transaction is flushed so the data survives a
+ * restart.
+ */
+export type WorkflowPersistence = {
+  load(): { documents: WorkflowDocument[]; signatures: StoredSignature[] };
+  save(state: { documents: WorkflowDocument[]; signatures: StoredSignature[] }): void;
+};
+
+/**
  * Reference adapter used by tests and by local runs without a database.
  * Transactions are serialised through a promise chain and roll back by
  * restoring the previous snapshot, which mirrors the guarantees the service
@@ -50,15 +60,44 @@ type MemoryState = {
 export class InMemoryWorkflowRepository implements WorkflowRepository {
   private state: MemoryState = { documents: new Map(), signatures: [] };
   private queue: Promise<unknown> = Promise.resolve();
+  private readonly persistence?: WorkflowPersistence;
+  private loaded = false;
+
+  constructor(persistence?: WorkflowPersistence) {
+    this.persistence = persistence;
+  }
+
+  private ensureLoaded() {
+    if (this.loaded || !this.persistence) {
+      this.loaded = true;
+      return;
+    }
+    const stored = this.persistence.load();
+    this.state = {
+      documents: new Map(stored.documents.map((document) => [document.id, document])),
+      signatures: stored.signatures,
+    };
+    this.loaded = true;
+  }
+
+  private flush() {
+    this.persistence?.save({
+      documents: [...this.state.documents.values()],
+      signatures: this.state.signatures,
+    });
+  }
 
   async transaction<T>(handler: (tx: WorkflowTx) => Promise<T>): Promise<T> {
     const run = this.queue.then(async () => {
+      this.ensureLoaded();
       const snapshot: MemoryState = {
         documents: new Map([...this.state.documents].map(([key, value]) => [key, structuredClone(value)])),
         signatures: this.state.signatures.map((item) => ({ ...item })),
       };
       try {
-        return await handler(this.createTx());
+        const result = await handler(this.createTx());
+        this.flush();
+        return result;
       } catch (error) {
         this.state = snapshot;
         throw error;

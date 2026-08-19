@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import type { Express, Request, Response } from "express";
 
 import { buildWorkflowPdf } from "../lib/pdf-export-core";
-import type { WorkflowDocument } from "../lib/workflow-store";
+import type { WorkflowDocument } from "../lib/workflow-types";
 
 function safeFileName(protocol: string, fallback: string) {
   const value = protocol.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "");

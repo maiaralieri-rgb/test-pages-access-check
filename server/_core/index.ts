@@ -8,6 +8,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { registerPdfExportRoute } from "../pdf-export";
+import { describeStore, isFileStoreActive } from "../store/local-store";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -76,11 +77,19 @@ async function startServer() {
   const port = await findAvailablePort(preferredPort);
 
   if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+    console.warn(`[api] porta ${preferredPort} ocupada; usando ${port}.`);
+    console.warn(`[api] o cliente web procura a API na porta ${preferredPort}. Defina EXPO_PUBLIC_API_PORT=${port} ao iniciar a web, ou libere a porta ${preferredPort}.`);
   }
 
   server.listen(port, () => {
     console.log(`[api] server listening on port ${port}`);
+    console.log(`[api] persistência: ${describeStore()}`);
+    if (isFileStoreActive()) {
+      console.log("[api] modo processo único: os signatários compartilham o documento por este servidor. Configure DATABASE_URL para produção com múltiplas instâncias.");
+    }
+    if (!process.env.ASSINAFLUXO_REGISTRATION_CODE) {
+      console.warn("[api] ASSINAFLUXO_REGISTRATION_CODE não configurado: nenhum cadastro será aceito. Rode `pnpm env:setup` para gerar um.");
+    }
   });
 }
 

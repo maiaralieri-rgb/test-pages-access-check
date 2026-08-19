@@ -49,12 +49,18 @@ export function getSessionCookieOptions(
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
   const hostname = req.hostname;
   const domain = getParentDomain(hostname);
+  const secure = isSecureRequest(req);
 
   return {
     domain,
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req),
+    // SameSite=None is only honoured together with Secure — browsers silently
+    // drop such a cookie over plain HTTP, which would make login never stick on
+    // a local run. Lax still covers the same-site cross-port case (8081 -> 3000)
+    // that local development uses, while HTTPS keeps None for the hosted setup
+    // where the client and the API sit on different subdomains.
+    sameSite: secure ? "none" : "lax",
+    secure,
   };
 }

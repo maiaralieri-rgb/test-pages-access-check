@@ -4,7 +4,11 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "concurrently -k \"pnpm dev:server\" \"pnpm dev:metro\"",
+    "env:setup": "node scripts/setup-env.mjs",
+    "dev": "pnpm env:setup && concurrently -k \"pnpm dev:server\" \"pnpm dev:metro\"",
+    "build:web": "expo export --platform web --output-dir dist-web",
+    "serve:web": "node scripts/serve-web.mjs",
+    "start:local": "pnpm env:setup && concurrently -k \"pnpm dev:server\" \"pnpm serve:web\"",
     "dev:server": "cross-env NODE_ENV=development tsx watch server/_core/index.ts",
     "dev:metro": "cross-env EXPO_USE_METRO_WORKSPACE_ROOT=1 npx expo start --web --port ${EXPO_PORT:-8081}",
     "build": "esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",

@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 
 import { getApiBaseUrl } from "@/constants/oauth";
-import type { WorkflowDocument } from "@/lib/workflow-store";
+import type { WorkflowDocument } from "@/lib/workflow-types";
 
 function fileName(document: WorkflowDocument) {
   const protocol = document.protocol.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "");

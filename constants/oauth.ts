@@ -1,4 +1,5 @@
 import * as Linking from "expo-linking";
+import { resolveApiBaseUrl } from "@/lib/api-base-url";
 import * as ReactNative from "react-native";
 
 // Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
@@ -24,28 +25,25 @@ export const OWNER_OPEN_ID = env.ownerId;
 export const OWNER_NAME = env.ownerName;
 export const API_BASE_URL = env.apiBaseUrl;
 
+/** Ports used when the web client and the API run side by side locally. */
+const WEB_PORT = process.env.EXPO_PUBLIC_WEB_PORT ?? "8081";
+const API_PORT = process.env.EXPO_PUBLIC_API_PORT ?? "3000";
+
 /**
  * Get the API base URL, deriving from current hostname if not set.
  * Metro runs on 8081, API server runs on 3000.
  * URL pattern: https://PORT-sandboxid.region.domain
  */
 export function getApiBaseUrl(): string {
-  // If API_BASE_URL is set, use it
   if (API_BASE_URL) {
-    return API_BASE_URL.replace(/\/$/, "");
+    return resolveApiBaseUrl({ override: API_BASE_URL });
   }
 
-  // On web, derive from current hostname by replacing port 8081 with 3000
   if (ReactNative.Platform.OS === "web" && typeof window !== "undefined" && window.location) {
-    const { protocol, hostname } = window.location;
-    // Pattern: 8081-sandboxid.region.domain -> 3000-sandboxid.region.domain
-    const apiHostname = hostname.replace(/^8081-/, "3000-");
-    if (apiHostname !== hostname) {
-      return `${protocol}//${apiHostname}`;
-    }
+    const { protocol, hostname, port } = window.location;
+    return resolveApiBaseUrl({ protocol, hostname, port, webPort: WEB_PORT, apiPort: API_PORT });
   }
 
-  // Fallback to empty (will use relative URL)
   return "";
 }
 

@@ -30,8 +30,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files — contêm segredos gerados por `pnpm env:setup`
+.env
 .env*.local
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -64,3 +66,7 @@ Thumbs.db
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
 .project-config.json
+
+# Armazenamento local (modo sem MySQL)
+.data/
+dist-web/

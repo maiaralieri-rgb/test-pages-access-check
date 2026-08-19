@@ -64,11 +64,22 @@ O texto de evidência inserido nos campos de assinatura é apenas uma representa
 | --- | --- |
 | `tests/workflow-rules.test.ts` | Ordem, bloqueio e liberação de etapas |
 | `tests/workflow-service.test.ts` | Fonte compartilhada: dois usuários, função da etapa, ordem das assinaturas, consentimento, bloqueio, idempotência e conflito de versão |
+| `tests/api-base-url.test.ts` | Endereço da API em execução local, sandbox hospedado, override e mesma origem |
+| `tests/session-cookie.test.ts` | Cookie de sessão: `SameSite`/`Secure` coerentes, domínio por subdomínio e proxy reverso |
 | `tests/pdf-export-core.test.ts` | Preservação do PDF original de duas páginas |
 | `tests/registration-code.test.ts` | Validação do segredo de cadastro no servidor, inclusive a recusa quando o segredo não está configurado |
 | `tests/local-auth.test.ts` | Hash, salt, força de senha, tokens e verificação |
 
-A última execução validada foi: 5 arquivos de teste, 23 testes aprovados e 1 ignorado, `tsc --noEmit` aprovado, lint aprovado com apenas o aviso padrão de módulo do ESLint, `expo export --platform web` gerando as 14 rotas e `pnpm build` gerando o bundle do servidor.
+A última execução validada foi: 7 arquivos de teste, 32 testes aprovados e 1 ignorado, `tsc --noEmit` aprovado, lint aprovado com apenas o aviso padrão de módulo do ESLint, `expo export --platform web` gerando as 14 rotas e `pnpm build` gerando o bundle do servidor.
+
+Além dos testes automatizados do repositório, o fluxo foi exercitado contra o servidor em
+execução, partindo de estado vazio: 32 verificações por HTTP (cadastro, código de cadastro
+inválido, convite de uso único, documento compartilhado entre duas contas, recusa por função,
+recusa por ordem, consentimento, bloqueio após assinatura, idempotência, conflito de versão,
+geração do PDF, persistência em disco e logout) e 14 verificações de interface em navegador
+real (login, sessão em cookie, lista e detalhe do processo vindos do servidor, ordem das
+assinaturas e ausência de erros de JavaScript). Também foi verificado que os dados sobrevivem
+ao reinício do servidor.
 
 ## Limitações que Claude Code deve resolver antes de produção
 
@@ -77,6 +88,8 @@ A última execução validada foi: 5 arquivos de teste, 23 testes aprovados e 1 
 | Alta | O estado principal da planilha usava `WorkflowProvider`/armazenamento local; dois navegadores não compartilhavam edições e assinaturas. | **Resolvido.** Tabelas `processes`, `process_stages`, `process_events` e `process_signatures`, com as mutações passando por endpoints tRPC transacionais. O modo local permanece apenas como fallback sinalizado na interface. |
 | Alta | A gravação final da assinatura precisava ser transacional no banco compartilhado. | **Resolvido.** `signStage` valida sessão, vínculo de função, etapa anterior, consentimento, versão do documento e idempotência dentro de uma transação, e só então grava a evidência, congela o bloco e libera a etapa seguinte. |
 | Alta | Não há integração com assinatura qualificada/certificada. | **Em aberto por decisão de projeto.** O contrato `SignatureProvider` isola o ponto de integração; o provedor atual declara `qualified: false`. Continua dependendo da definição institucional e do credenciamento aplicável. |
+| Alta | O app exigia MySQL provisionado para qualquer execução. | **Resolvido.** Sem `DATABASE_URL` o servidor usa `server/store/local-store.ts`, que grava em `.data/assinafluxo.json`. O documento continua compartilhado entre signatários porque o estado vive no servidor, e não no navegador. É de processo único: para várias instâncias, configure `DATABASE_URL`. |
+| Alta | O cliente web não encontrava a própria API fora do sandbox hospedado, e o cookie de sessão era descartado em HTTP. | **Resolvido.** `resolveApiBaseUrl` passou a tratar a execução local por porta, e o cookie usa `SameSite=Lax` quando a conexão não é segura (`SameSite=None` sem `Secure` é descartado pelos navegadores). Ambos têm teste de regressão. |
 | Média | Avisos e lembretes precisam de entrega remota por e-mail/push. | **Em aberto.** O lembrete grava evento de auditoria, mas não há outbox, preferências, retry nem registro de entrega. |
 | Média | Recuperação de senha e administração de contas não estão concluídas. | **Em aberto.** |
 | Média | O código padrão de cadastro é um segredo compartilhado. | **Em aberto.** O convite por etapa já é individual, de uso único e com expiração, mas o código padrão continua sendo um segredo compartilhado sem rotação nem rate limit. |

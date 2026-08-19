@@ -49,6 +49,9 @@ O código padrão de cadastro deve ser tratado como segredo de configuração no
 - [x] Manter o modo local como fallback e sinalizar na interface em qual modo o usuário está.
 - [x] Isolar a assinatura certificada atrás de um adaptador explícito, sem alegar credenciamento.
 - [x] Criar testes de integração com dois usuários, convite, função da etapa e ordem das assinaturas.
+- [x] Tornar o app executável sem MySQL, mantendo o documento compartilhado pelo servidor.
+- [x] Corrigir o endereço da API na execução local e o cookie de sessão em HTTP.
+- [x] Validar o fluxo completo contra o servidor em execução e em navegador real.
 - [ ] Validar a migração `0003` contra um MySQL real, com dois navegadores em contas diferentes.
 - [ ] Conectar notificações reais (outbox, preferências, retry e registro de entrega).
 - [ ] Concluir recuperação de senha e administração de contas.
