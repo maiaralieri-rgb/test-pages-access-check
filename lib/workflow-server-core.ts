@@ -22,7 +22,7 @@ export class WorkflowError extends Error {
 }
 
 export type SignerIdentity = {
-  accountId: number;
+  accountId: string;
   name: string;
   registrationId: string;
   functionKey: string;
@@ -122,7 +122,7 @@ export function canonicalSignaturePayload(input: {
  * instead of failing or recording a second signature. One account signs a given
  * stage once, which is the business rule the unique index also enforces.
  */
-export function buildIdempotencyKey(processId: string, stageKey: string, accountId: number) {
+export function buildIdempotencyKey(processId: string, stageKey: string, accountId: string) {
   return `${processId}:${stageKey}:${accountId}`;
 }
 

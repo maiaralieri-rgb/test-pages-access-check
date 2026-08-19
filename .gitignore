@@ -70,3 +70,6 @@ Thumbs.db
 # Armazenamento local (modo sem MySQL)
 .data/
 dist-web/
+
+# Bundle gerado da Cloud Function
+functions/lib/

@@ -40,31 +40,44 @@ na ordem de assinatura.
 
 ## Publicar para acesso de todos (link)
 
-Rodando localmente, o endereço só existe na sua máquina. Para ter um link que a corporação
-acesse, é preciso hospedar em um servidor alcançável pela rede, com HTTPS. O app é um
-servidor Node (Express + tRPC) mais uma pasta estática:
+O caminho recomendado é o **Firebase**: a interface vai para o Hosting, a API vira uma Cloud
+Function e os dados ficam no Firestore. Isso produz um endereço público
+(`https://SEU-PROJETO.web.app`) que todos os signatários acessam.
 
 ```bash
-pnpm build:web
-pnpm build                      # empacota a API em dist/
-NODE_ENV=production node dist/index.js
+npx firebase login
+npx firebase use --add
+pnpm fb:deploy
 ```
 
-Sirva `dist-web` pelo mesmo domínio da API (ou defina `EXPO_PUBLIC_API_BASE_URL` apontando
-para ela). Para mais de uma instância, configure `DATABASE_URL` e aplique as migrações com
-`pnpm db:push` — o armazenamento em arquivo é de processo único.
+O roteiro completo — criar o projeto, ativar Authentication e Firestore, definir o código de
+cadastro e publicar — está em **[DEPLOY_FIREBASE.md](DEPLOY_FIREBASE.md)**.
 
-Use HTTPS em produção: o cookie de sessão só pode usar `SameSite=None` (necessário quando a
-interface e a API ficam em domínios distintos) sobre conexão segura.
+Alternativa sem Firebase: hospedar o servidor Node você mesmo, com HTTPS, servindo `dist-web`
+pelo mesmo domínio da API (ou definindo `EXPO_PUBLIC_API_BASE_URL`), e usar `DATABASE_URL`
+com `pnpm db:push` para o banco MySQL.
 
-## Como o documento é compartilhado
+## Onde os dados ficam
 
-O processo vive no servidor, não no navegador. Todo signatário autenticado lê e escreve o
-mesmo documento, e a interface revalida periodicamente para refletir o que os outros fizeram.
+O app escolhe o armazenamento pelo que estiver configurado, sem mudança de código:
+
+| Configuração | Persistência | Identidade |
+| --- | --- | --- |
+| `FIREBASE_PROJECT_ID` | Firestore | Firebase Auth |
+| `DATABASE_URL` | MySQL | Contas locais |
+| nenhuma | `.data/assinafluxo.json` | Contas locais |
+
+Em todos os casos o processo vive no servidor, não no navegador: todo signatário autenticado
+lê e escreve o mesmo documento, e a interface revalida periodicamente.
 
 Sem sessão válida, o app cai em **modo local**: cada navegador guarda a própria cópia. Esse
 modo existe como rede de proteção e fica sinalizado na tela, porque uma planilha assinada em
 modo local não chega aos demais participantes.
+
+No modo Firebase o cliente **nunca** escreve no banco. As Security Rules (`firestore.rules`)
+negam toda escrita vinda do navegador, de modo que a ordem das assinaturas não pode ser
+contornada editando o Firestore direto — isso é verificado por teste, inclusive a tentativa de
+forjar assinatura e a de se promover a coordenador.
 
 ## Ordem das assinaturas
 
@@ -99,7 +112,9 @@ qualificado.
 | `pnpm start:local` | API + interface já compilada |
 | `pnpm build:web` / `pnpm build` | Compila interface / API |
 | `pnpm check`, `pnpm lint`, `pnpm test` | TypeScript, lint e testes |
-| `pnpm db:push` | Aplica as migrações (exige `DATABASE_URL`) |
+| `pnpm db:push` | Aplica as migrações MySQL (exige `DATABASE_URL`) |
+| `pnpm fb:emulators` | Sobe os emuladores de Auth e Firestore |
+| `pnpm fb:deploy` | Publica interface, API e regras no Firebase |
 
 ## Estrutura
 
@@ -108,9 +123,12 @@ qualificado.
 | `app/` | Rotas Expo Router (desktop principal, mobile complementar) |
 | `lib/workflow-rules.ts` | Definição das etapas e transições |
 | `lib/workflow-server-core.ts` | Regras puras: ordem, bloqueio, consentimento, versão, idempotência |
-| `server/workflow/` | Porta de armazenamento, adaptadores MySQL/arquivo, serviço transacional |
-| `server/store/` | Armazenamento em arquivo usado quando não há `DATABASE_URL` |
+| `server/workflow/` | Porta de armazenamento, adaptadores Firestore/MySQL/arquivo, serviço transacional |
+| `server/identity/` | Porta de identidade: Firebase Auth ou contas locais |
+| `server/firebase/` | Inicialização do Admin SDK |
+| `server/store/` | Armazenamento em arquivo usado quando não há Firebase nem MySQL |
 | `server/signature/` | Adaptador da camada de assinatura |
+| `firestore.rules` | Regras que negam qualquer escrita vinda do cliente |
 | `server/routers.ts` | Endpoints tRPC de identidade e do workflow |
 | `drizzle/` | Esquema e migrações |
 | `tests/` | Regras do trâmite, integração com dois usuários, cookie, URL da API, auth e PDF |

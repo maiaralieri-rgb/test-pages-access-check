@@ -50,7 +50,7 @@ export type InviteRecord = {
 
 export type MemberRecord = {
   processId: string;
-  accountId: number;
+  accountId: string;
   functionKey: string;
   stageId: string;
   signatureOrder: number;

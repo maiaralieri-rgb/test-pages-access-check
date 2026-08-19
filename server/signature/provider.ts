@@ -22,7 +22,7 @@ export type SignatureRequest = {
   canonicalPayload: string;
   processId: string;
   stageKey: string;
-  signerAccountId: number;
+  signerAccountId: string;
   signerName: string;
   signerRegistrationId: string;
   signedAt: string;

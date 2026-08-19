@@ -20,7 +20,7 @@ import { getSignatureProvider, type SignatureProvider } from "../signature/provi
 import type { WorkflowRepository, WorkflowTx } from "./repository";
 
 export type WorkflowActor = {
-  accountId: number;
+  accountId: string;
   name: string;
   registrationId: string;
   role: "coordinator" | "signer" | "viewer";
@@ -30,7 +30,7 @@ export type StageMembership = { functionKey: string; signatureOrder: number };
 
 export type MembershipLookup = (
   processId: string,
-  accountId: number,
+  accountId: string,
   stageKey: string,
 ) => Promise<StageMembership | undefined>;
 

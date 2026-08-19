@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Platform, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 
 import { DesktopShell, isDesktopLayout } from "@/components/desktop-shell";
 import { OutlineButton, PrimaryButton } from "@/components/workflow-ui";
@@ -11,13 +11,26 @@ export default function LoginScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && isDesktopLayout(width);
-  const { login } = useLocalAuth();
+  const { login, pending, supportsPasswordReset, resetPassword } = useLocalAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const recover = async () => {
+    if (!email.trim()) {
+      Alert.alert("Informe o e-mail", "Digite seu e-mail institucional para receber o link de redefinição.");
+      return;
+    }
+    try {
+      await resetPassword(email);
+      Alert.alert("Verifique seu e-mail", "Se existir uma conta com este e-mail, o link de redefinição foi enviado.");
+    } catch (error) {
+      Alert.alert("Não foi possível enviar", error instanceof Error ? error.message : "Tente novamente.");
+    }
+  };
+
   const submit = async () => {
     try {
-      await login.mutateAsync({ email, password });
+      await login(email, password);
       router.replace("/" as any);
     } catch (error) {
       Alert.alert("Não foi possível entrar", error instanceof Error ? error.message : "Revise seu e-mail e senha.");
@@ -28,8 +41,9 @@ export default function LoginScreen() {
     <View style={styles.formIntro}><Text style={styles.kicker}>ACESSO SEGURO</Text><Text style={styles.title}>Entrar no AssinaFluxo</Text><Text style={styles.subtitle}>Use a senha particular criada no cadastro. O acesso liberará somente os processos e campos associados à sua função.</Text></View>
     <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="E-mail institucional" placeholderTextColor="#8293A5" keyboardType="email-address" autoCapitalize="none" />
     <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Senha particular" placeholderTextColor="#8293A5" secureTextEntry />
-    <PrimaryButton label={login.isPending ? "Entrando..." : "Entrar"} onPress={submit} disabled={login.isPending} />
+    <PrimaryButton label={pending ? "Entrando..." : "Entrar"} onPress={submit} disabled={pending} />
     <OutlineButton label="Cadastrar por link" onPress={() => router.replace("/cadastro" as any)} />
+    {supportsPasswordReset ? <Pressable onPress={recover}><Text style={styles.recover}>Esqueci minha senha</Text></Pressable> : null}
   </View>;
 
   if (isDesktop) return <DesktopShell active="inicio" title="Acesso institucional" subtitle="Entre para consultar e assinar seus processos" action={<View style={styles.desktopAction}><OutlineButton label="Voltar ao início" onPress={() => router.replace("/" as any)} /></View>}><View style={styles.desktopCenter}>{form}</View></DesktopShell>;
@@ -45,5 +59,6 @@ const styles = StyleSheet.create({
   kicker: { color: "#B7791F", fontSize: 11, fontWeight: "800", letterSpacing: 1.1 },
   title: { color: "#103A5B", fontSize: 27, fontWeight: "800", lineHeight: 34 },
   subtitle: { color: "#607385", fontSize: 14, lineHeight: 21 },
+  recover: { color: "#103A5B", fontSize: 13, fontWeight: "700", marginTop: 4, textAlign: "center", textDecorationLine: "underline" },
   input: { backgroundColor: "#F7F9FB", borderColor: "#D9E1E8", borderRadius: 10, borderWidth: 1, color: "#1E2D3D", fontSize: 15, minHeight: 48, paddingHorizontal: 14 },
 });

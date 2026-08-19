@@ -1,14 +1,11 @@
 import "dotenv/config";
-import express from "express";
 import { createServer } from "http";
 import net from "net";
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
-import { registerStorageProxy } from "./storageProxy";
-import { appRouter } from "../routers";
-import { createContext } from "./context";
-import { registerPdfExportRoute } from "../pdf-export";
+
+import { createApp } from "../app";
 import { describeStore, isFileStoreActive } from "../store/local-store";
+import { describeWorkflowStorage } from "../workflow";
+import { getIdentityProvider } from "../identity";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -30,48 +27,8 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
-  const app = express();
+  const app = createApp();
   const server = createServer(app);
-
-  // Enable CORS for all routes - reflect the request origin to support credentials
-  app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin) {
-      res.header("Access-Control-Allow-Origin", origin);
-    }
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept, Authorization",
-    );
-    res.header("Access-Control-Allow-Credentials", "true");
-
-    // Handle preflight requests
-    if (req.method === "OPTIONS") {
-      res.sendStatus(200);
-      return;
-    }
-    next();
-  });
-
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
-
-  registerStorageProxy(app);
-  registerOAuthRoutes(app);
-  registerPdfExportRoute(app);
-
-  app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, timestamp: Date.now() });
-  });
-
-  app.use(
-    "/api/trpc",
-    createExpressMiddleware({
-      router: appRouter,
-      createContext,
-    }),
-  );
 
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);
@@ -83,9 +40,13 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`[api] server listening on port ${port}`);
-    console.log(`[api] persistência: ${describeStore()}`);
-    if (isFileStoreActive()) {
-      console.log("[api] modo processo único: os signatários compartilham o documento por este servidor. Configure DATABASE_URL para produção com múltiplas instâncias.");
+    console.log(`[api] persistência: ${describeWorkflowStorage()}`);
+    console.log(`[api] identidade: ${getIdentityProvider().id === "firebase" ? "Firebase Auth" : "contas locais"}`);
+    if (describeWorkflowStorage() === "arquivo local") {
+      console.log(`[api] ${describeStore()}`);
+      if (isFileStoreActive()) {
+        console.log("[api] modo processo único: os signatários compartilham o documento por este servidor. Configure Firebase ou DATABASE_URL para produção.");
+      }
     }
     if (!process.env.ASSINAFLUXO_REGISTRATION_CODE) {
       console.warn("[api] ASSINAFLUXO_REGISTRATION_CODE não configurado: nenhum cadastro será aceito. Rode `pnpm env:setup` para gerar um.");

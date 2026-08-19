@@ -12,7 +12,7 @@ export default function RegistrationScreen() {
   const params = useLocalSearchParams<{ convite?: string }>();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && isDesktopLayout(width);
-  const { register } = useLocalAuth();
+  const { register, pending } = useLocalAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [registrationId, setRegistrationId] = useState("");
@@ -26,7 +26,7 @@ export default function RegistrationScreen() {
       return;
     }
     try {
-      await register.mutateAsync({ name, email, registrationId, registrationCode, password, inviteToken: typeof params.convite === "string" ? params.convite : undefined });
+      await register({ name, email, registrationId, registrationCode, password, inviteToken: typeof params.convite === "string" ? params.convite : undefined });
       Alert.alert("Cadastro concluído", "Sua conta foi criada. A etapa correspondente estará disponível quando chegar a sua vez.", [{ text: "Acessar", onPress: () => router.replace("/" as any) }]);
     } catch (error) {
       Alert.alert("Não foi possível concluir", error instanceof Error ? error.message : "Revise os dados e tente novamente.");
@@ -42,7 +42,7 @@ export default function RegistrationScreen() {
     <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Senha particular" placeholderTextColor="#8293A5" secureTextEntry />
     <Text style={styles.helper}>A senha deve ter pelo menos 10 caracteres, incluindo maiúscula, minúscula e número.</Text>
     <TextInput style={styles.input} value={confirmation} onChangeText={setConfirmation} placeholder="Confirme sua senha" placeholderTextColor="#8293A5" secureTextEntry />
-    <PrimaryButton label={register.isPending ? "Criando acesso..." : "Criar meu acesso"} onPress={submit} disabled={register.isPending} />
+    <PrimaryButton label={pending ? "Criando acesso..." : "Criar meu acesso"} onPress={submit} disabled={pending} />
     <OutlineButton label="Já tenho acesso" onPress={() => router.replace("/login" as any)} />
   </View>;
 

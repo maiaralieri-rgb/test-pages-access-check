@@ -227,7 +227,7 @@ export async function createRegistrationLink(data: { tokenHash: string; processI
   await db.insert(registrationLinks).values(data);
 }
 
-export async function createProcessMember(data: { processId: string; accountId: number; functionKey: string; stageId: string; signatureOrder: number }) {
+export async function createProcessMember(data: { processId: string; accountId: string; functionKey: string; stageId: string; signatureOrder: number }) {
   if (isFileStoreActive()) {
     mutateStore((state) => {
       const exists = state.members.some(
@@ -242,7 +242,7 @@ export async function createProcessMember(data: { processId: string; accountId: 
   await db.insert(processMembers).values(data);
 }
 
-export async function getProcessMember(processId: string, accountId: number, stageId: string) {
+export async function getProcessMember(processId: string, accountId: string, stageId: string) {
   if (isFileStoreActive()) {
     return readStore().members.find(
       (member) => member.processId === processId && member.accountId === accountId && member.stageId === stageId,

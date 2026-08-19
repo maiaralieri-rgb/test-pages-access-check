@@ -1,0 +1,17 @@
+{
+  "name": "assinafluxo-functions",
+  "private": true,
+  "main": "lib/index.js",
+  "type": "module",
+  "engines": { "node": "22" },
+  "dependencies": {
+    "express": "^4.22.1",
+    "firebase-admin": "^14.2.0",
+    "firebase-functions": "^6.6.0",
+    "@trpc/server": "11.7.2",
+    "superjson": "^1.13.3",
+    "zod": "^4.2.1",
+    "pdf-lib": "^1.17.1",
+    "cookie": "^1.1.1"
+  }
+}

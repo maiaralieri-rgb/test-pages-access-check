@@ -63,7 +63,7 @@ export const localSessions = mysqlTable("local_sessions", {
 export const processMembers = mysqlTable("process_members", {
   id: int("id").autoincrement().primaryKey(),
   processId: varchar("processId", { length: 128 }).notNull(),
-  accountId: int("accountId").notNull(),
+  accountId: varchar("accountId", { length: 128 }).notNull(),
   functionKey: varchar("functionKey", { length: 80 }).notNull(),
   stageId: varchar("stageId", { length: 64 }).notNull(),
   signatureOrder: int("signatureOrder").notNull(),
@@ -92,7 +92,7 @@ export const processes = mysqlTable("processes", {
   certificationState: varchar("certificationState", { length: 64 }).default("evidence_pending_qualification").notNull(),
   /** Optimistic concurrency guard: every mutation bumps it and signatures pin it. */
   version: int("version").default(1).notNull(),
-  createdByAccountId: int("createdByAccountId"),
+  createdByAccountId: varchar("createdByAccountId", { length: 128 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -123,7 +123,7 @@ export const processEvents = mysqlTable("process_events", {
   type: mysqlEnum("type", ["created", "saved", "signed", "forwarded", "reminder", "skipped"]).notNull(),
   description: text("description").notNull(),
   hash: varchar("hash", { length: 128 }),
-  accountId: int("accountId"),
+  accountId: varchar("accountId", { length: 128 }),
   at: timestamp("at").defaultNow().notNull(),
 }, (table) => [
   index("process_events_process_idx").on(table.processId),
@@ -137,7 +137,7 @@ export const processSignatures = mysqlTable("process_signatures", {
   id: int("id").autoincrement().primaryKey(),
   processId: varchar("processId", { length: 128 }).notNull(),
   stageKey: varchar("stageKey", { length: 64 }).notNull(),
-  accountId: int("accountId").notNull(),
+  accountId: varchar("accountId", { length: 128 }).notNull(),
   signerName: varchar("signerName", { length: 180 }).notNull(),
   signerRegistrationId: varchar("signerRegistrationId", { length: 80 }).notNull(),
   functionKey: varchar("functionKey", { length: 80 }).notNull(),

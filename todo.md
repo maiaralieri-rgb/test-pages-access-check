@@ -53,6 +53,11 @@ O código padrão de cadastro deve ser tratado como segredo de configuração no
 - [x] Corrigir o endereço da API na execução local e o cookie de sessão em HTTP.
 - [x] Validar o fluxo completo contra o servidor em execução e em navegador real.
 - [ ] Validar a migração `0003` contra um MySQL real, com dois navegadores em contas diferentes.
+- [x] Migrar para Firebase: Firestore, Firebase Auth e Hosting, com a API como Cloud Function.
+- [x] Impedir que o cliente escreva direto no banco, via Security Rules, com teste de invasão.
+- [x] Concluir recuperação de senha (Firebase Auth) na tela de acesso.
+- [x] Validar o fluxo completo contra os emuladores de Auth e Firestore.
+- [ ] Publicar no projeto Firebase da instituição e distribuir o link.
 - [ ] Conectar notificações reais (outbox, preferências, retry e registro de entrega).
-- [ ] Concluir recuperação de senha e administração de contas.
+- [ ] Concluir a administração de contas (desativar, trocar função, auditoria de acessos).
 - [ ] Integrar o provedor de assinatura qualificada após o credenciamento institucional.

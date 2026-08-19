@@ -3,7 +3,7 @@ import type { WorkflowDocument } from "../../lib/workflow-types";
 export type StoredSignature = {
   processId: string;
   stageKey: string;
-  accountId: number;
+  accountId: string;
   signerName: string;
   signerRegistrationId: string;
   functionKey: string;
@@ -24,7 +24,7 @@ export type StoredSignature = {
 export type WorkflowTx = {
   listProcesses(): Promise<WorkflowDocument[]>;
   getProcess(processId: string): Promise<WorkflowDocument | undefined>;
-  insertProcess(document: WorkflowDocument, createdByAccountId: number | null): Promise<void>;
+  insertProcess(document: WorkflowDocument, createdByAccountId: string | null): Promise<void>;
   saveProcess(document: WorkflowDocument): Promise<void>;
   getSignature(processId: string, stageKey: string): Promise<StoredSignature | undefined>;
   getSignatureByIdempotencyKey(idempotencyKey: string): Promise<StoredSignature | undefined>;

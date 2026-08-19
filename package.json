@@ -20,7 +20,10 @@
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "qr": "node scripts/generate_qr.mjs"
+    "qr": "node scripts/generate_qr.mjs",
+    "build:functions": "esbuild server/functions.ts --platform=node --packages=external --bundle --format=esm --outfile=functions/lib/index.js",
+    "fb:emulators": "firebase emulators:start --only auth,firestore --project assinafluxo-dev",
+    "fb:deploy": "pnpm build:web && pnpm build:functions && firebase deploy"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -57,6 +60,8 @@
     "expo-video": "~3.0.15",
     "expo-web-browser": "~15.0.10",
     "express": "^4.22.1",
+    "firebase": "^12.17.1",
+    "firebase-admin": "^14.2.0",
     "jose": "6.1.0",
     "mysql2": "^3.16.0",
     "nativewind": "^4.2.1",
@@ -88,6 +93,8 @@
     "esbuild": "^0.25.12",
     "eslint": "^9.39.2",
     "eslint-config-expo": "~10.0.0",
+    "firebase-functions": "^7.3.2",
+    "firebase-tools": "^15.27.0",
     "prettier": "^3.7.4",
     "qrcode": "^1.5.4",
     "tailwindcss": "^3.4.17",

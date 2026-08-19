@@ -66,6 +66,7 @@ O texto de evidência inserido nos campos de assinatura é apenas uma representa
 | `tests/workflow-service.test.ts` | Fonte compartilhada: dois usuários, função da etapa, ordem das assinaturas, consentimento, bloqueio, idempotência e conflito de versão |
 | `tests/api-base-url.test.ts` | Endereço da API em execução local, sandbox hospedado, override e mesma origem |
 | `tests/session-cookie.test.ts` | Cookie de sessão: `SameSite`/`Secure` coerentes, domínio por subdomínio e proxy reverso |
+| `tests/firestore-repository.test.ts` | Trâmite sobre Firestore real (emulador): ordem, transação, idempotência e versão |
 | `tests/pdf-export-core.test.ts` | Preservação do PDF original de duas páginas |
 | `tests/registration-code.test.ts` | Validação do segredo de cadastro no servidor, inclusive a recusa quando o segredo não está configurado |
 | `tests/local-auth.test.ts` | Hash, salt, força de senha, tokens e verificação |
@@ -91,7 +92,8 @@ ao reinício do servidor.
 | Alta | O app exigia MySQL provisionado para qualquer execução. | **Resolvido.** Sem `DATABASE_URL` o servidor usa `server/store/local-store.ts`, que grava em `.data/assinafluxo.json`. O documento continua compartilhado entre signatários porque o estado vive no servidor, e não no navegador. É de processo único: para várias instâncias, configure `DATABASE_URL`. |
 | Alta | O cliente web não encontrava a própria API fora do sandbox hospedado, e o cookie de sessão era descartado em HTTP. | **Resolvido.** `resolveApiBaseUrl` passou a tratar a execução local por porta, e o cookie usa `SameSite=Lax` quando a conexão não é segura (`SameSite=None` sem `Secure` é descartado pelos navegadores). Ambos têm teste de regressão. |
 | Média | Avisos e lembretes precisam de entrega remota por e-mail/push. | **Em aberto.** O lembrete grava evento de auditoria, mas não há outbox, preferências, retry nem registro de entrega. |
-| Média | Recuperação de senha e administração de contas não estão concluídas. | **Em aberto.** |
+| Média | Recuperação de senha e administração de contas não estão concluídas. | **Parcial.** A recuperação de senha passou a existir no modo Firebase (`sendPasswordResetEmail`, exposto na tela de acesso). A administração de contas — desativar, trocar função, auditar acessos — continua em aberto. |
+| Alta | O app dependia de infraestrutura própria para ter um endereço público. | **Resolvido.** Firestore + Firebase Auth + Hosting, com a API rodando como uma única Cloud Function. `firestore.rules` nega toda escrita vinda do cliente, de modo que a ordem das assinaturas não pode ser contornada editando o banco. Roteiro de publicação em `DEPLOY_FIREBASE.md`. |
 | Média | O código padrão de cadastro é um segredo compartilhado. | **Em aberto.** O convite por etapa já é individual, de uso único e com expiração, mas o código padrão continua sendo um segredo compartilhado sem rotação nem rate limit. |
 
 ## Roteiro recomendado para continuação

@@ -4,9 +4,9 @@ import { WorkflowError } from "../lib/workflow-server-core";
 import { InMemoryWorkflowRepository } from "../server/workflow/repository";
 import { WorkflowService, type MembershipLookup, type WorkflowActor } from "../server/workflow/service";
 
-const coordinator: WorkflowActor = { accountId: 1, name: "Cap. Marina Souto", registrationId: "111111-1", role: "coordinator" };
-const indicationSigner: WorkflowActor = { accountId: 2, name: "Ten. Paulo Andrade", registrationId: "222222-2", role: "signer" };
-const personalSigner: WorkflowActor = { accountId: 3, name: "Cap. Bruno Azevedo", registrationId: "333333-3", role: "signer" };
+const coordinator: WorkflowActor = { accountId: "1", name: "Cap. Marina Souto", registrationId: "111111-1", role: "coordinator" };
+const indicationSigner: WorkflowActor = { accountId: "2", name: "Ten. Paulo Andrade", registrationId: "222222-2", role: "signer" };
+const personalSigner: WorkflowActor = { accountId: "3", name: "Cap. Bruno Azevedo", registrationId: "333333-3", role: "signer" };
 
 /**
  * Stands in for the process_members rows that a stage invite creates: account 2
@@ -191,7 +191,7 @@ describe("fonte compartilhada do trâmite LMP", () => {
   });
 
   it("não deixa contas de consulta editar nem assinar", async () => {
-    const viewer: WorkflowActor = { accountId: 9, name: "Sd. Consulta", registrationId: "999999-9", role: "viewer" };
+    const viewer: WorkflowActor = { accountId: "9", name: "Sd. Consulta", registrationId: "999999-9", role: "viewer" };
     const created = await service.createProcess(coordinator, newProcess);
 
     await expect(
