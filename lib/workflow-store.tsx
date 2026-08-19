@@ -2,7 +2,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
 import { type PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { isFirebaseEnabled, subscribeToAuthChanges } from "@/lib/firebase-client";
 import { trpc } from "@/lib/trpc";
+import { resolveWorkflowSource } from "@/lib/workflow-source";
 import {
   canEditStage,
   createStages,
@@ -29,6 +31,8 @@ type WorkflowContextValue = {
   source: WorkflowSource;
   /** True while the shared source is unavailable, so the UI can warn the user. */
   isLocalFallback: boolean;
+  /** Firebase is configured but nobody is signed in: no local copy is offered. */
+  requiresSignIn: boolean;
   getDocument: (id: string) => WorkflowDocument | undefined;
   createWorkflow: (input: CreateWorkflowInput) => Promise<string>;
   updateStage: (documentId: string, stageId: string, fields: Record<string, string | boolean>) => Promise<void>;
@@ -110,8 +114,10 @@ export function WorkflowProvider({ children }: PropsWithChildren) {
   const [localDocuments, setLocalDocuments] = useState<WorkflowDocument[]>([]);
   const [localReady, setLocalReady] = useState(false);
 
+  const utils = trpc.useUtils();
   const session = trpc.localAuth.me.useQuery(undefined, { retry: false, staleTime: 30_000 });
   const isAuthenticated = Boolean(session.data);
+  const firebaseMode = isFirebaseEnabled();
 
   const remote = trpc.workflow.list.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -121,8 +127,22 @@ export function WorkflowProvider({ children }: PropsWithChildren) {
     refetchInterval: 15_000,
   });
 
-  // The shared source is only trusted when the account is signed in and the API answered.
-  const useServer = isAuthenticated && !remote.isError && remote.data !== undefined;
+  // Sign-in and sign-out only take effect asynchronously in the Firebase SDK;
+  // without this the app would keep showing the pre-login state.
+  useEffect(() => {
+    if (!firebaseMode) return;
+    return subscribeToAuthChanges(() => {
+      utils.localAuth.me.invalidate();
+      utils.workflow.list.invalidate();
+    });
+  }, [firebaseMode, utils]);
+
+  const { useServer, localFallbackAllowed, requiresSignIn } = resolveWorkflowSource({
+    firebaseMode,
+    isAuthenticated,
+    remoteFailed: remote.isError,
+    remoteLoaded: remote.data !== undefined,
+  });
 
   const createRemote = trpc.workflow.create.useMutation();
   const saveDraftRemote = trpc.workflow.saveDraft.useMutation();
@@ -148,14 +168,21 @@ export function WorkflowProvider({ children }: PropsWithChildren) {
     if (localReady) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(localDocuments)).catch(() => undefined);
   }, [localDocuments, localReady]);
 
-  const documents = useServer ? (remote.data ?? []) : localDocuments;
-  const isReady = useServer ? !remote.isLoading : localReady;
+  const documents = useServer ? (remote.data ?? []) : localFallbackAllowed ? localDocuments : [];
+  const isReady = useServer ? !remote.isLoading : localFallbackAllowed ? localReady : !session.isLoading;
 
   const getDocument = useCallback((id: string) => documents.find((document) => document.id === id), [documents]);
 
   const refresh = useCallback(async () => (useServer ? remote.refetch() : undefined), [useServer, remote]);
 
+  const requireServer = useCallback(() => {
+    if (!useServer && !localFallbackAllowed) {
+      throw new Error("Entre com sua conta para trabalhar na versão compartilhada deste processo.");
+    }
+  }, [useServer, localFallbackAllowed]);
+
   const createWorkflow = useCallback(async (input: CreateWorkflowInput) => {
+    requireServer();
     if (useServer) {
       const created = await createRemote.mutateAsync(input);
       await remote.refetch();
@@ -177,9 +204,10 @@ export function WorkflowProvider({ children }: PropsWithChildren) {
     };
     setLocalDocuments((current) => [document, ...current]);
     return id;
-  }, [useServer, createRemote, remote]);
+  }, [useServer, createRemote, remote, requireServer]);
 
   const updateStage = useCallback(async (documentId: string, stageId: string, fields: Record<string, string | boolean>) => {
+    requireServer();
     if (useServer) {
       await saveDraftRemote.mutateAsync({ processId: documentId, stageId, fields });
       await remote.refetch();
@@ -198,9 +226,10 @@ export function WorkflowProvider({ children }: PropsWithChildren) {
         events: [...document.events, makeEvent(target.signerName, "saved", `Rascunho salvo em “${target.title}”.`)],
       };
     }));
-  }, [useServer, saveDraftRemote, remote]);
+  }, [useServer, saveDraftRemote, remote, requireServer]);
 
   const signActiveStage = useCallback(async (documentId: string, stageId: string, fields?: Record<string, string | boolean>) => {
+    requireServer();
     if (useServer) {
       await signRemote.mutateAsync({ processId: documentId, stageId, fields });
       await remote.refetch();
@@ -233,9 +262,10 @@ export function WorkflowProvider({ children }: PropsWithChildren) {
       ];
       return { ...item, stages: updatedStages, status: complete ? "completed" : "in_progress", version: item.version + 1, updatedAt: signedAt, events };
     }));
-  }, [useServer, signRemote, remote, localDocuments]);
+  }, [useServer, signRemote, remote, localDocuments, requireServer]);
 
   const skipActiveStage = useCallback(async (documentId: string, stageId: string) => {
+    requireServer();
     if (useServer) {
       await skipRemote.mutateAsync({ processId: documentId, stageId });
       await remote.refetch();
@@ -259,7 +289,7 @@ export function WorkflowProvider({ children }: PropsWithChildren) {
         ],
       };
     }));
-  }, [useServer, skipRemote, remote]);
+  }, [useServer, skipRemote, remote, requireServer]);
 
   const sendReminder = useCallback(async (documentId: string) => {
     if (useServer) {
@@ -285,6 +315,7 @@ export function WorkflowProvider({ children }: PropsWithChildren) {
     isReady,
     source: (useServer ? "server" : "local") as WorkflowSource,
     isLocalFallback: !useServer,
+    requiresSignIn,
     getDocument,
     createWorkflow,
     updateStage,
@@ -292,7 +323,7 @@ export function WorkflowProvider({ children }: PropsWithChildren) {
     skipActiveStage,
     sendReminder,
     refresh,
-  }), [documents, isReady, useServer, getDocument, createWorkflow, updateStage, signActiveStage, skipActiveStage, sendReminder, refresh]);
+  }), [documents, isReady, useServer, localFallbackAllowed, requiresSignIn, getDocument, createWorkflow, updateStage, signActiveStage, skipActiveStage, sendReminder, refresh]);
 
   return <WorkflowContext.Provider value={value}>{children}</WorkflowContext.Provider>;
 }

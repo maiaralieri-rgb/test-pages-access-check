@@ -1,5 +1,5 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
-import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
+import { connectAuthEmulator, getAuth, onAuthStateChanged, type Auth, type User } from "firebase/auth";
 
 /**
  * Browser-side Firebase. The config values are public by design (they identify
@@ -37,10 +37,39 @@ export function getFirebaseAuthClient(): Auth | null {
   return auth;
 }
 
+let authReady: Promise<void> | null = null;
+
+/**
+ * Firebase restores the previous session asynchronously after page load.
+ * Without waiting for that first callback, the very first API request goes out
+ * with no token, comes back 401, and the app silently falls back to local mode —
+ * where a signature would look successful but reach nobody.
+ */
+function waitForAuthReady(client: Auth): Promise<void> {
+  if (!authReady) {
+    authReady = new Promise((resolve) => {
+      const unsubscribe = onAuthStateChanged(client, () => {
+        unsubscribe();
+        resolve();
+      });
+    });
+  }
+  return authReady;
+}
+
 /** Fresh ID token for the API call, or undefined when nobody is signed in. */
 export async function getFirebaseIdToken(): Promise<string | undefined> {
   const client = getFirebaseAuthClient();
-  const user = client?.currentUser;
+  if (!client) return undefined;
+  await waitForAuthReady(client);
+  const user = client.currentUser;
   if (!user) return undefined;
   return user.getIdToken();
+}
+
+/** Lets the app refetch as soon as sign-in or sign-out actually takes effect. */
+export function subscribeToAuthChanges(handler: (user: User | null) => void) {
+  const client = getFirebaseAuthClient();
+  if (!client) return () => undefined;
+  return onAuthStateChanged(client, handler);
 }

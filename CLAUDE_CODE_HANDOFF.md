@@ -48,7 +48,9 @@ O vínculo de função é criado pelo convite de etapa. O coordenador seleciona 
 
 No detalhe da LMP, `StagePanel` chama a autorização do servidor antes de permitir edição ou assinatura. A interface desabilita os campos, o rascunho e o botão quando a sessão não é válida ou quando a conta não possui o vínculo daquela etapa. Essa checagem é apenas para a interface: a autorização que vale é refeita dentro da transação de `signStage`, junto com a ordem das etapas, o consentimento e a versão do documento.
 
-`WorkflowProvider` (`lib/workflow-store.tsx`) opera em dois modos. Com sessão válida e API respondendo, ele usa a fonte compartilhada e revalida a cada 15 segundos. Sem isso, cai no modo local original, que segue existindo como rede de proteção. O componente `SourceNotice` mostra ao usuário em qual modo ele está, para que ninguém assine uma cópia que os demais não recebem.
+`WorkflowProvider` (`lib/workflow-store.tsx`) decide a origem por `resolveWorkflowSource`. Com sessão válida e API respondendo, usa a fonte compartilhada e revalida a cada 15 segundos. Fora do Firebase, cai no modo local original, que segue existindo como rede de proteção, sinalizado por `SourceNotice`.
+
+Com Firebase configurado **não existe modo local**. O motivo é concreto: o SDK restaura a sessão de forma assíncrona, então a primeira chamada após o carregamento saía sem token, voltava 401 e o app servia a cópia do navegador — uma assinatura registrada ali aparecia como concluída na tela e não chegava a ninguém. Duas correções fecham isso: `getFirebaseIdToken` aguarda o primeiro callback de `onAuthStateChanged` antes de responder, e `subscribeToAuthChanges` invalida as consultas quando o login ou o logout de fato ocorre. Além disso, toda mutação passa por `requireServer`, que falha em vez de gravar localmente.
 
 A camada de assinatura fica atrás do adaptador `server/signature/provider.ts`. O único provedor incluído é `local-evidence`, que produz um SHA-256 sobre o payload canônico e se declara explicitamente como **não qualificado** (`qualified: false`). A integração certificada deve entrar por esse mesmo contrato, após o credenciamento institucional aplicável.
 
@@ -67,6 +69,7 @@ O texto de evidência inserido nos campos de assinatura é apenas uma representa
 | `tests/api-base-url.test.ts` | Endereço da API em execução local, sandbox hospedado, override e mesma origem |
 | `tests/session-cookie.test.ts` | Cookie de sessão: `SameSite`/`Secure` coerentes, domínio por subdomínio e proxy reverso |
 | `tests/firestore-repository.test.ts` | Trâmite sobre Firestore real (emulador): ordem, transação, idempotência e versão |
+| `tests/workflow-source.test.ts` | Origem do documento: com Firebase configurado, nunca há cópia local |
 | `tests/pdf-export-core.test.ts` | Preservação do PDF original de duas páginas |
 | `tests/registration-code.test.ts` | Validação do segredo de cadastro no servidor, inclusive a recusa quando o segredo não está configurado |
 | `tests/local-auth.test.ts` | Hash, salt, força de senha, tokens e verificação |
