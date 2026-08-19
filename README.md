@@ -1,57 +1,77 @@
-# PM-COM-002 — Tramitação Digital da Láurea do Mérito Pessoal (LMP)
+# AssinaFluxo — tramitação digital da PM-COM-002 (LMP)
 
-Aplicação web que digitaliza o formulário **PM-COM-002 (Láurea do Mérito Pessoal — PMESP)**,
-permitindo que o documento tramite e seja assinado digitalmente por todas as autoridades
-do fluxo, na ordem correta, com exportação em PDF a qualquer momento.
+Aplicação web desktop-prioritária para tramitar a planilha **PM-COM-002 / Láurea do Mérito
+Pessoal**. Mantém a ordem das etapas, libera a edição apenas do bloco corrente, registra a
+manifestação de vontade e as evidências de integridade, e gera o PDF a partir do formulário
+original.
 
-## Funcionalidades
+## Como executar
 
-- **Disponível para todos**: aplicação 100% estática — basta publicar no GitHub Pages e
-  compartilhar o link; qualquer pessoa com acesso pode abrir, preencher e assinar.
-- **Múltiplas planilhas de láurea**: qualquer usuário pode criar uma nova planilha pelo
-  botão **“+ Nova Planilha de Láurea”**. As planilhas ficam listadas na barra lateral.
-- **Campos editáveis a qualquer momento**: todos os campos do formulário permanecem
-  editáveis durante toda a tramitação, com salvamento automático.
-- **Ordem de assinaturas visível e obrigatória**: o painel “Ordem de tramitação e
-  assinaturas” mostra as 10 etapas do fluxo (indicação → P/1 → PJMD → pareceres →
-  concessão → publicação/visto), indicando o que já foi assinado, quem assinou e qual é
-  a **próxima etapa**. O sistema só libera a assinatura da etapa quando todas as
-  obrigatórias anteriores estiverem assinadas; etapas opcionais podem ser dispensadas.
-- **Assinatura digital** com **nome completo, posto/graduação e CPF** (CPF validado pelo
-  algoritmo oficial), data/hora e **código de verificação SHA-256** que vincula o
-  signatário ao conteúdo do documento no momento da assinatura. O CPF é exibido
-  parcialmente mascarado no documento (LGPD).
-- **Exportação em PDF**: botão “Exportar PDF” gera o documento formatado em folhas A4
-  via diálogo de impressão do navegador (escolha “Salvar como PDF”).
-- **Compartilhamento entre usuários**: exporte a planilha em JSON e envie ao próximo
-  signatário, que a importa e continua a tramitação do ponto em que parou.
+```bash
+pnpm install
+cp .env.example .env      # preencha os valores no ambiente de destino
+pnpm db:push              # aplica as migrações (requer DATABASE_URL)
+pnpm dev                  # web + API
+```
 
-## Fluxo de tramitação (ordem das assinaturas)
+Comandos auxiliares: `pnpm dev:metro` (somente web), `pnpm dev:server` (somente API),
+`pnpm check` (TypeScript), `pnpm lint`, `pnpm test`, `pnpm build`.
 
-1. Responsável pela Indicação — Autoridade do Art. 6º *(obrigatória)*
-2. Informações Pessoais — Oficial P/1 ou Secretário *(obrigatória)*
-3. Informações Disciplinares — Oficial PJMD ou equivalente *(obrigatória)*
-4. Parecer Cmt Cia / equivalente *(opcional)*
-5. Parecer Cmt Btl / equivalente *(opcional)*
-6. Parecer *(opcional)*
-7. Parecer para Situações Excepcionais — Art. 8º, V *(opcional)*
-8. Aprovação do Subcomandante PM — situações excepcionais *(opcional)*
-9. Concessão — Autoridades do Art. 8º *(obrigatória)*
-10. Publicação e Visto *(obrigatória)*
+As variáveis obrigatórias estão nomeadas em `.env.example`. `ASSINAFLUXO_REGISTRATION_CODE`
+existe apenas no ambiente do servidor — nunca no cliente, em commits ou em documentação. Sem
+esse segredo, nenhum cadastro é aceito.
 
-## Como publicar (GitHub Pages)
+## Como o documento é compartilhado
 
-1. No repositório, acesse **Settings → Pages**.
-2. Em *Source*, escolha **Deploy from a branch** e selecione a branch desejada com a
-   pasta `/ (root)`.
-3. O sistema ficará disponível em `https://<usuario>.github.io/<repositorio>/`.
+O processo vive no banco, não no navegador. Todo signatário autenticado lê e escreve o mesmo
+documento, e a interface revalida periodicamente para refletir o que os outros fizeram.
 
-## Limitações e observações
+Sem sessão válida ou sem `DATABASE_URL`, o app cai em **modo local**: cada navegador guarda a
+própria cópia. Esse modo existe como rede de proteção para desenvolvimento e fica sinalizado na
+tela, porque uma planilha assinada em modo local não chega aos demais participantes.
 
-- Os dados são gravados no **localStorage do navegador** de cada usuário. Para que o
-  documento passe de um signatário a outro, use **Exportar JSON → Importar JSON**
-  (por e-mail, SEI, drive etc.). Para sincronização automática em tempo real entre
-  usuários seria necessário um backend (ex.: Firebase, Supabase ou API própria).
-- A assinatura implementada é uma **assinatura eletrônica simples** (registro de nome,
-  graduação, CPF, data/hora e hash de integridade). Ela **não substitui** assinatura
-  digital qualificada ICP-Brasil (ex.: gov.br, token A3) quando a norma exigir.
+## Ordem das assinaturas
+
+As dez etapas seguem a sequência do formulário: indicação (Art. 6º), informações pessoais (P/1),
+informações disciplinares (PJMD), pareceres de Cmt Cia e Cmt Btl, parecer da autoridade, situação
+excepcional, aprovação do Subcomandante, concessão (Art. 8º) e publicação/remessa. Etapas
+opcionais podem ser dispensadas; as demais precisam ser assinadas na ordem.
+
+O servidor não confia na interface. Ao assinar, dentro de uma única transação, ele revalida a
+sessão, o vínculo da conta com a função daquela etapa, a conclusão das etapas anteriores, a
+manifestação de vontade e a versão do documento; só então grava a evidência, congela o bloco e
+libera a etapa seguinte. Uma requisição repetida devolve a assinatura original em vez de
+registrar uma segunda.
+
+## Cadastro por função
+
+O coordenador abre o processo, seleciona a etapa e usa **Link da etapa**. O servidor devolve um
+token de uso único com expiração. O convidado acessa `/cadastro?convite=TOKEN`, informa o código
+padrão, nome, matrícula, e-mail e senha particular, e a conta passa a ser vinculada àquele
+processo, etapa, função e ordem de assinatura.
+
+## Assinatura eletrônica — o que ela é e o que não é
+
+A evidência registrada é um SHA-256 sobre o conteúdo canônico da etapa, somado à identidade do
+signatário e ao instante do consentimento. Isso comprova integridade e intenção.
+
+**Não é** assinatura qualificada ICP-Brasil, não carrega carimbo de tempo confiável e não
+substitui o programa institucional de certificação. A integração certificada tem um ponto de
+entrada explícito em `server/signature/provider.ts`; o provedor atual se declara como não
+qualificado.
+
+## Estrutura
+
+| Caminho | Conteúdo |
+| --- | --- |
+| `app/` | Rotas Expo Router (desktop principal, mobile complementar) |
+| `lib/workflow-rules.ts` | Definição das etapas e transições |
+| `lib/workflow-server-core.ts` | Regras puras: ordem, bloqueio, consentimento, versão, idempotência |
+| `server/workflow/` | Porta de armazenamento, adaptadores MySQL e memória, serviço transacional |
+| `server/signature/` | Adaptador da camada de assinatura |
+| `server/routers.ts` | Endpoints tRPC de identidade e do workflow |
+| `drizzle/` | Esquema e migrações |
+| `tests/` | Regras do trâmite, integração com dois usuários, auth e exportação do PDF |
+
+Documentação complementar: `CLAUDE_CODE_HANDOFF.md` (estado, arquitetura e limitações),
+`auth_design.md`, `design.md`, `research_certificacao.md`, `roteiro_implantacao.md` e `todo.md`.

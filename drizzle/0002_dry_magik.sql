@@ -1,0 +1,1 @@
+ALTER TABLE `registration_links` ADD `signatureOrder` int NOT NULL;
