@@ -28,6 +28,8 @@ export const API_BASE_URL = env.apiBaseUrl;
 /** Ports used when the web client and the API run side by side locally. */
 const WEB_PORT = process.env.EXPO_PUBLIC_WEB_PORT ?? "8081";
 const API_PORT = process.env.EXPO_PUBLIC_API_PORT ?? "3000";
+/** Set when one server answers both the pages and /api (Vercel, single domain). */
+const SAME_ORIGIN = process.env.EXPO_PUBLIC_API_SAME_ORIGIN === "true";
 
 /**
  * Get the API base URL, deriving from current hostname if not set.
@@ -41,7 +43,7 @@ export function getApiBaseUrl(): string {
 
   if (ReactNative.Platform.OS === "web" && typeof window !== "undefined" && window.location) {
     const { protocol, hostname, port } = window.location;
-    return resolveApiBaseUrl({ protocol, hostname, port, webPort: WEB_PORT, apiPort: API_PORT });
+    return resolveApiBaseUrl({ sameOrigin: SAME_ORIGIN, protocol, hostname, port, webPort: WEB_PORT, apiPort: API_PORT });
   }
 
   return "";

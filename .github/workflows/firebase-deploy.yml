@@ -1,4 +1,4 @@
-name: Publicar no Firebase
+name: Testes e publicação opcional no Firebase
 
 # Publica automaticamente a cada envio de código. Depois da configuração
 # inicial, ninguém precisa abrir o console do Firebase de novo.
@@ -51,10 +51,10 @@ jobs:
           else
             echo "pronto=false" >> "$GITHUB_OUTPUT"
             {
-              echo "### Publicação ainda não configurada"
+              echo "### Testes aprovados"
               echo ""
-              echo "Os testes passaram, mas faltam os segredos do repositório."
-              echo "Siga o **SETUP_PUBLICACAO.md** e crie:"
+              echo "A publicação em produção é feita pela Vercel (veja SETUP_PUBLICACAO.md)."
+              echo "Este fluxo só publica no Firebase se estes segredos existirem:"
               echo ""
               echo "- \`FIREBASE_SERVICE_ACCOUNT\`"
               echo "- \`ASSINAFLUXO_REGISTRATION_CODE\`"

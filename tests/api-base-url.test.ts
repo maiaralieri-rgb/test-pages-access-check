@@ -26,6 +26,13 @@ describe("endereço da API usado pelo cliente web", () => {
       .toBe("http://localhost:4000");
   });
 
+  it("respeita o modo mesma origem, mesmo servindo na porta de desenvolvimento", () => {
+    // Regressão: sem isso, uma implantação de origem única servida em 8081
+    // mandava o cliente para a porta 3000, onde não há nada escutando.
+    expect(resolveApiBaseUrl({ sameOrigin: true, protocol: "https:", hostname: "assinafluxo.vercel.app", port: "" })).toBe("");
+    expect(resolveApiBaseUrl({ sameOrigin: true, protocol: "http:", hostname: "localhost", port: "8081" })).toBe("");
+  });
+
   it("usa a mesma origem quando a API é servida pelo próprio host", () => {
     expect(resolveApiBaseUrl({ protocol: "https:", hostname: "lmp.pmesp.gov.br", port: "" })).toBe("");
     expect(resolveApiBaseUrl({ protocol: "https:", hostname: "lmp.pmesp.gov.br", port: "443" })).toBe("");

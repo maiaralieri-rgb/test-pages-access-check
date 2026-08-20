@@ -59,7 +59,9 @@ O código padrão de cadastro deve ser tratado como segredo de configuração no
 - [x] Validar o fluxo completo contra os emuladores de Auth e Firestore.
 - [x] Validar o fluxo completo em navegador no modo Firebase: cadastro, login, criação, assinatura e segunda conta.
 - [x] Impedir que o app caia em cópia local quando o Firebase está configurado.
-- [ ] Publicar no projeto Firebase da instituição e distribuir o link.
+- [x] Adaptar a publicação para o plano gratuito: API e interface na Vercel, Auth e Firestore no Firebase.
+- [x] Corrigir o endereço da API em implantação de origem única, com teste de regressão.
+- [ ] Publicar na Vercel e distribuir o link.
 - [ ] Conectar notificações reais (outbox, preferências, retry e registro de entrega).
 - [ ] Concluir a administração de contas (desativar, trocar função, auditoria de acessos).
 - [ ] Integrar o provedor de assinatura qualificada após o credenciamento institucional.

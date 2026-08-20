@@ -50,12 +50,14 @@ npx firebase use --add
 pnpm fb:deploy
 ```
 
-Melhor ainda: com a **[configuração única do SETUP_PUBLICACAO.md](SETUP_PUBLICACAO.md)**, o
-GitHub passa a publicar sozinho a cada alteração — sem ninguém abrir o console de novo. Os
-testes rodam antes; se algum falhar, nada é publicado e o que está no ar continua funcionando.
+O roteiro completo está em **[SETUP_PUBLICACAO.md](SETUP_PUBLICACAO.md)**: Firebase cuida das
+contas e do banco (plano gratuito), e a Vercel serve a interface e a API (também gratuita).
+Depois de configurado, cada alteração enviada ao repositório se publica sozinha.
 
-O roteiro manual, para publicar da própria máquina, está em
-**[DEPLOY_FIREBASE.md](DEPLOY_FIREBASE.md)**.
+Cloud Functions exigiria o plano Blaze, com cartão. Rodar a API na Vercel evita isso sem abrir
+mão de nada: a validação de ordem e função continua no servidor, dentro de uma transação, e o
+navegador nunca escreve direto no banco. O caminho por Firebase Hosting + Functions continua
+disponível em **[DEPLOY_FIREBASE.md](DEPLOY_FIREBASE.md)** para quando o Blaze estiver liberado.
 
 Alternativa sem Firebase: hospedar o servidor Node você mesmo, com HTTPS, servindo `dist-web`
 pelo mesmo domínio da API (ou definindo `EXPO_PUBLIC_API_BASE_URL`), e usar `DATABASE_URL`
@@ -113,7 +115,8 @@ qualificado.
 | --- | --- |
 | `pnpm env:setup` | Cria `.env` com código de cadastro e segredo de sessão |
 | `pnpm dev` | API + interface em modo desenvolvimento |
-| `pnpm start:local` | API + interface já compilada |
+| `pnpm start:local` | API e interface em portas separadas |
+| `pnpm start:single` | API e interface na mesma porta (como na Vercel) |
 | `pnpm build:web` / `pnpm build` | Compila interface / API |
 | `pnpm check`, `pnpm lint`, `pnpm test` | TypeScript, lint e testes |
 | `pnpm db:push` | Aplica as migrações MySQL (exige `DATABASE_URL`) |

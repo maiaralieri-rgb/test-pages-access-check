@@ -23,7 +23,9 @@
     "qr": "node scripts/generate_qr.mjs",
     "build:functions": "esbuild server/functions.ts --platform=node --packages=external --bundle --format=esm --outfile=functions/lib/index.js",
     "fb:emulators": "firebase emulators:start --only auth,firestore --project assinafluxo-dev",
-    "fb:deploy": "pnpm build:web && pnpm build:functions && firebase deploy"
+    "fb:deploy": "pnpm build:web && pnpm build:functions && firebase deploy",
+    "build:vercel": "node scripts/build-web-vercel.mjs",
+    "start:single": "tsx scripts/serve-all.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
